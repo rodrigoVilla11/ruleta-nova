@@ -177,51 +177,161 @@ function useCooldown() {
 }
 
 // ---------------- Confetti simple ----------------
-function ConfettiBurst({ show }: { show: boolean }) {
+// === Enhanced Confetti (brand) ===
+function EnhancedConfetti({
+  show,
+  duration = 1600,
+  colors = ["#E7E2D4", "#C6A05A", "#B3873B", "#FFFFFF"], // ivory + golds
+}: {
+  show: boolean;
+  duration?: number;
+  colors?: string[];
+}) {
   const ref = useRef<HTMLCanvasElement | null>(null);
+
   useEffect(() => {
     if (!show || !ref.current) return;
     const canvas = ref.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    let w = (canvas.width = canvas.offsetWidth);
-    let h = (canvas.height = canvas.offsetHeight);
-    const colors = [PALETTE.gold, PALETTE.goldDeep, PALETTE.ivory, "#ffffff"];
-    const N = 120;
-    const parts = Array.from({ length: N }).map(() => ({
-      x: Math.random() * w,
-      y: -10 - Math.random() * 40,
-      r: 4 + Math.random() * 6,
-      vx: -2 + Math.random() * 4,
-      vy: 2 + Math.random() * 3,
-      color: colors[(Math.random() * colors.length) | 0],
-      a: Math.random() * Math.PI,
-    }));
-    let tId: number;
-    const step = () => {
-      if (!ctx) return;
-      ctx.clearRect(0, 0, w, h);
-      for (const p of parts) {
+
+    // HiDPI + resize
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const resize = () => {
+      const { offsetWidth: w, offsetHeight: h } = canvas;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    window.addEventListener("resize", resize);
+
+    // Partículas ----------------------------------
+    type P = {
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      ax: number;
+      ay: number;
+      rot: number;
+      vr: number;
+      life: number;
+      ttl: number;
+      size: number;
+      color: string;
+      shape: "rect" | "circle" | "tri";
+    };
+
+    const W = canvas.offsetWidth;
+    const H = canvas.offsetHeight;
+    const cx = W / 2;
+    const cy = H * 0.99;
+
+    const rand = (a: number, b: number) => a + Math.random() * (b - a);
+    const pick = <T,>(arr: T[]) => arr[(Math.random() * arr.length) | 0];
+
+    const makeBurst = (N: number, spreadDeg = 55) => {
+      const parts: P[] = [];
+      for (let i = 0; i < N; i++) {
+        const angle = ((Math.random() - 0.5) * spreadDeg * Math.PI) / 180;
+        const base = -Math.PI / 2; // sale hacia arriba
+        const speed = rand(6, 9);
+        parts.push({
+          x: cx,
+          y: cy,
+          vx: Math.cos(base + angle) * speed,
+          vy: Math.sin(base + angle) * speed,
+          ax: 0,
+          ay: 0.05, // gravedad
+          rot: rand(0, Math.PI * 2),
+          vr: rand(-0.2, 0.2), // giro
+          life: 0,
+          ttl: rand(duration * 0.6, duration * 1.1),
+          size: rand(4, 9),
+          color: pick(colors),
+          shape: pick(["rect", "circle", "tri"]),
+        });
+      }
+      return parts;
+    };
+
+    let parts: P[] = [
+      ...makeBurst(140, 55), // 1ª oleada
+    ];
+    // 2ª oleada con pequeño delay para “relleno”
+    const wave2 = setTimeout(() => {
+      parts.push(...makeBurst(80, 75));
+    }, 120);
+
+    let rafId = 0;
+    let start = performance.now();
+
+    const step = (t: number) => {
+      const elapsed = t - start;
+      ctx.clearRect(0, 0, W, H);
+
+      parts.forEach((p) => {
+        // física simple
+        p.vx *= 0.985; // drag
+        p.vy *= 0.985;
+        p.vy += p.ay; // gravity
         p.x += p.vx;
         p.y += p.vy;
-        p.vy += 0.03;
-        p.a += 0.1;
+        p.rot += p.vr;
+        p.life += 16;
+
+        // alpha suave (in/out)
+        const fadeIn = Math.min(1, p.life / 250);
+        const fadeOut = Math.max(0, 1 - elapsed / p.ttl);
+        const alpha = Math.min(fadeIn, fadeOut);
+
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = p.color;
         ctx.save();
         ctx.translate(p.x, p.y);
-        ctx.rotate(p.a);
-        ctx.fillStyle = p.color;
-        ctx.fillRect(-p.r, -p.r / 2, p.r * 2, p.r);
+        ctx.rotate(p.rot);
+
+        if (p.shape === "rect") {
+          ctx.fillRect(-p.size, -p.size / 2, p.size * 2, p.size);
+        } else if (p.shape === "circle") {
+          ctx.beginPath();
+          ctx.arc(0, 0, p.size * 0.6, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          ctx.beginPath();
+          ctx.moveTo(-p.size, p.size * 0.6);
+          ctx.lineTo(0, -p.size * 0.8);
+          ctx.lineTo(p.size, p.size * 0.6);
+          ctx.closePath();
+          ctx.fill();
+        }
+
         ctx.restore();
-      }
-      tId = requestAnimationFrame(step);
+        ctx.globalAlpha = 1;
+      });
+
+      // culling
+      parts = parts.filter((p) => elapsed < p.ttl && p.y < H + 40);
+
+      rafId = requestAnimationFrame(step);
     };
-    step();
-    const killer = setTimeout(() => cancelAnimationFrame(tId), 1600);
+
+    rafId = requestAnimationFrame(step);
+
+    const killer = setTimeout(
+      () => cancelAnimationFrame(rafId),
+      duration + 1000
+    );
     return () => {
-      cancelAnimationFrame(tId);
+      cancelAnimationFrame(rafId);
       clearTimeout(killer);
+      clearTimeout(wave2);
+      window.removeEventListener("resize", resize);
+      ctx.clearRect(0, 0, W, H);
     };
-  }, [show]);
+  }, [show, duration, colors]);
+
   return (
     <AnimatePresence>
       {show && (
@@ -465,7 +575,11 @@ export default function RuletaNovaPage() {
 
           <div className="relative rounded-[32px] p-6 bg-black/30 border border-white/10 backdrop-blur-sm shadow-[0_20px_60px_rgba(0,0,0,0.4)]">
             <Wheel rewards={rewards} angle={angle} />
-            <ConfettiBurst show={burst} />
+            <EnhancedConfetti
+              show={burst}
+              duration={1800} // un poco más largo
+              colors={["#E7E2D4", "#C6A05A", "#B3873B", "#FFF7DF"]} // paleta más cálida
+            />
           </div>
 
           <button
