@@ -177,15 +177,21 @@ function useCooldown() {
 }
 
 // ---------------- Confetti simple ----------------
-// === Enhanced Confetti (brand) ===
+// === Enhanced Confetti (brand) — burst desde puntero ===
 function EnhancedConfetti({
   show,
   duration = 1600,
-  colors = ["#E7E2D4", "#C6A05A", "#B3873B", "#FFFFFF"], // ivory + golds
+  colors = ["#E7E2D4", "#C6A05A", "#B3873B", "#FFFFFF"],
+  origin = "bottom-center",
+  originOffsetY = 34, // fino: distancia desde el borde superior (px) hasta la punta del puntero
+  spreadDeg = 70, // apertura del abanico
 }: {
   show: boolean;
   duration?: number;
   colors?: string[];
+  origin?: "top-center" | "bottom-center";
+  originOffsetY?: number;
+  spreadDeg?: number;
 }) {
   const ref = useRef<HTMLCanvasElement | null>(null);
 
@@ -206,7 +212,6 @@ function EnhancedConfetti({
     resize();
     window.addEventListener("resize", resize);
 
-    // Partículas ----------------------------------
     type P = {
       x: number;
       y: number;
@@ -225,27 +230,32 @@ function EnhancedConfetti({
 
     const W = canvas.offsetWidth;
     const H = canvas.offsetHeight;
-    const cx = W / 2;
-    const cy = H * 0.99;
+
+    // puntero: arriba, centro. Afinamos Y con originOffsetY para que coincida con la punta.
+    const emitterX = W / 2;
+    const emitterY =
+      origin === "top-center" ? originOffsetY : H - originOffsetY;
+
+    // si el origen es arriba, el “chorro” baja; si es abajo, sube
+    const baseAngle = origin === "top-center" ? Math.PI / 2 : -Math.PI / 2;
 
     const rand = (a: number, b: number) => a + Math.random() * (b - a);
     const pick = <T,>(arr: T[]) => arr[(Math.random() * arr.length) | 0];
 
-    const makeBurst = (N: number, spreadDeg = 55) => {
+    const makeBurst = (N: number, spread = spreadDeg) => {
       const parts: P[] = [];
       for (let i = 0; i < N; i++) {
-        const angle = ((Math.random() - 0.5) * spreadDeg * Math.PI) / 180;
-        const base = -Math.PI / 2; // sale hacia arriba
+        const angle = ((Math.random() - 0.5) * spread * Math.PI) / 180;
         const speed = rand(6, 9);
         parts.push({
-          x: cx,
-          y: cy,
-          vx: Math.cos(base + angle) * speed,
-          vy: Math.sin(base + angle) * speed,
+          x: emitterX,
+          y: emitterY,
+          vx: Math.cos(baseAngle + angle) * speed,
+          vy: Math.sin(baseAngle + angle) * speed,
           ax: 0,
           ay: 0.05, // gravedad
           rot: rand(0, Math.PI * 2),
-          vr: rand(-0.2, 0.2), // giro
+          vr: rand(-0.2, 0.2),
           life: 0,
           ttl: rand(duration * 0.6, duration * 1.1),
           size: rand(4, 9),
@@ -256,32 +266,29 @@ function EnhancedConfetti({
       return parts;
     };
 
-    let parts: P[] = [
-      ...makeBurst(140, 55), // 1ª oleada
-    ];
-    // 2ª oleada con pequeño delay para “relleno”
+    let parts: P[] = [...makeBurst(140)];
     const wave2 = setTimeout(() => {
-      parts.push(...makeBurst(80, 75));
-    }, 120);
+      parts.push(...makeBurst(80, spreadDeg + 15));
+    }, 110);
 
     let rafId = 0;
-    let start = performance.now();
+    const start = performance.now();
 
     const step = (t: number) => {
       const elapsed = t - start;
       ctx.clearRect(0, 0, W, H);
 
       parts.forEach((p) => {
-        // física simple
-        p.vx *= 0.985; // drag
+        // física
+        p.vx *= 0.985;
         p.vy *= 0.985;
-        p.vy += p.ay; // gravity
+        p.vy += p.ay; // gravedad hacia abajo (si el origen es top) o sigue afectando igual si es bottom
         p.x += p.vx;
         p.y += p.vy;
         p.rot += p.vr;
         p.life += 16;
 
-        // alpha suave (in/out)
+        // fade in/out
         const fadeIn = Math.min(1, p.life / 250);
         const fadeOut = Math.max(0, 1 - elapsed / p.ttl);
         const alpha = Math.min(fadeIn, fadeOut);
@@ -311,8 +318,8 @@ function EnhancedConfetti({
         ctx.globalAlpha = 1;
       });
 
-      // culling
-      parts = parts.filter((p) => elapsed < p.ttl && p.y < H + 40);
+      // limpiar fuera de pantalla/tiempo
+      parts = parts.filter((p) => elapsed < p.ttl && p.y < H + 60 && p.y > -60);
 
       rafId = requestAnimationFrame(step);
     };
@@ -328,9 +335,8 @@ function EnhancedConfetti({
       clearTimeout(killer);
       clearTimeout(wave2);
       window.removeEventListener("resize", resize);
-      ctx.clearRect(0, 0, W, H);
     };
-  }, [show, duration, colors]);
+  }, [show, duration, colors, origin, originOffsetY, spreadDeg]);
 
   return (
     <AnimatePresence>
@@ -577,8 +583,11 @@ export default function RuletaNovaPage() {
             <Wheel rewards={rewards} angle={angle} />
             <EnhancedConfetti
               show={burst}
-              duration={1800} // un poco más largo
-              colors={["#E7E2D4", "#C6A05A", "#B3873B", "#FFF7DF"]} // paleta más cálida
+              duration={1800}
+              colors={["#E7E2D4", "#C6A05A", "#B3873B", "#FFF7DF"]}
+              origin="bottom-center" // ← hace que el emisor sea la punta del puntero
+              originOffsetY={34} // ← afiná 30–40 según tu puntero; 34 suele calzar bien
+              spreadDeg={70} // ← abanico un poco más abierto
             />
           </div>
 
