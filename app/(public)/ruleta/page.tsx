@@ -116,8 +116,8 @@ const REWARDS: Reward[] = [
   },
   {
     id: "ten_pieces",
-    label: "10 piezas gratis",
-    detail: "10 piezas gratis en tu próximo pedido 🍣",
+    label: "10 piezas extra",
+    detail: "10 piezas extra en tu próximo pedido 🍣",
     weight: 5,
     kind: { type: "ITEM", value: "10 piezas" },
     fill: PALETTE.ivory,
@@ -125,8 +125,8 @@ const REWARDS: Reward[] = [
   },
   {
     id: "thirty_pieces",
-    label: "30 piezas gratis",
-    detail: "30 piezas gratis en tu próximo pedido 🎉",
+    label: "30 piezas extra",
+    detail: "30 piezas extra en tu próximo pedido 🎉",
     weight: 5,
     kind: { type: "ITEM", value: "30 piezas" },
     fill: PALETTE.goldDeep,
@@ -538,13 +538,13 @@ export default function RuletaNovaPage() {
   const rw = resultIdx != null ? rewards[resultIdx] : null;
 
   const buildWhatsAppUrl = (reward: Reward) => {
-    let msg = "Hola! 🎡 Jugué a la Ruleta Nova!";
+    let msg = "Hola! Jugué a la Ruleta Nova!";
     if (reward.kind.type === "PERCENT")
-      msg = `Hola! 🍣 Gané un ${reward.kind.value}% de descuento en la Ruleta Nova y quiero usarlo en mi próximo pedido.`;
+      msg = `Hola! Gané un ${reward.kind.value}% de descuento en la Ruleta Nova y quiero usarlo en mi próximo pedido.`;
     else if (reward.kind.type === "ITEM")
-      msg = `Hola! 🍣 Gané ${reward.kind.value} en la Ruleta Nova y quiero usarlo en mi próximo pedido.`;
+      msg = `Hola! Gané ${reward.kind.value} en la Ruleta Nova y quiero usarlo en mi próximo pedido.`;
     else if (reward.kind.type === "SHIPPING")
-      msg = `Hola! 🚗 Gané envío gratis en la Ruleta Nova y quiero aprovecharlo en mi próximo pedido.`;
+      msg = `Hola! Gané envío gratis en la Ruleta Nova y quiero aprovecharlo en mi próximo pedido.`;
     return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
   };
 
@@ -569,7 +569,7 @@ export default function RuletaNovaPage() {
         <section className="relative flex flex-col items-center gap-5">
           <div className="text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-300">
-              <TimerReset className="w-4 h-4" /> 1 giro cada 24 h
+              <TimerReset className="w-4 h-4" /> 1 giro por compra
             </div>
             <h1 className="text-4xl font-black tracking-tight mt-3">
               Ruleta Nova
@@ -652,8 +652,7 @@ export default function RuletaNovaPage() {
             <h3 className="text-lg font-bold">Cómo funciona</h3>
             <ul className="list-disc list-inside text-sm text-zinc-200 mt-2 space-y-1">
               <li>
-                1 giro por día (24 h entre giros). Se guarda localmente en tu
-                dispositivo.
+                1 giro despues de cada compra.
               </li>
               <li>
                 El beneficio se coordina por WhatsApp; no acumulable con otras
